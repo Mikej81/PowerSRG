@@ -4,14 +4,32 @@
 ##################################
 [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic') 
 
-$bigiphost = Microsoft.VisualBasic.Interaction]::InputBox("Enter BIG-IP FQDN (Excluding https://)", "FQDN")
+$bigiphost = [Microsoft.VisualBasic.Interaction]::InputBox("Enter BIG-IP FQDN (Excluding https://)", "FQDN")
 $settrue = @{value= $true}
 $setfalse = @{value= $false}
 $jsontrue = $settrue | ConvertTo-Json
 $jsonfalse = $setfalse | ConvertTo-Json
 
 $newcred = Get-Credential
+$testcon = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/version" -Method GET -Credential $newcred -ContentType 'application/json'
+if ($testcon) {
+    $ver = $testcon.entries.'https://localhost/mgmt/tm/sys/version/0'.nestedStats.entries.Version.description
+    if ($ver -contains "12.*" ){
+    ##Version 12
+    }
+    else {
+    ##Version NOT 12
+    }
+}
+else {
+##Connection failed.
+return
+}
+
+##Maybe ask what the new Admin should be called?  Add checking to see if xAdmin already exists, and if so, then what?
+
 $adminpasswd = [Microsoft.VisualBasic.Interaction]::InputBox("Enter New Admin User Password", "password") 
+
 
 #Enable or Disable App Mode [jsontrue/jsonfalse]
 $AppQuestion = [Microsoft.VisualBasic.Interaction]::MsgBox("Do you want to enable Appliance Mode?",'YesNoCancel,Question', "Respond")
@@ -23,8 +41,10 @@ Else {
 }
 
 #NTP Settings
+$NTPQuestion = [Microsoft.VisualBasic.Interaction]::InputBox("Enter NTP Server(s).  Seperated with commas.")
 $ntpServers = @{
-    servers= 192.168.2.25
+    #servers= 192.168.2.25
+    servers=$NTPQuestion
     }
 $ntpjson = $ntpServers | ConvertTo-Json
 
@@ -96,48 +116,47 @@ $defadmin = @"
 #STIG NET0700
 #App Mode Lite / Disable Bash & Disable Root
 
-$bashresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/db/systemauth.disablebash' -Method PATCH -Credential $newcred -Body $AppMode -ContentType 'application/json'
-$rootresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/db/systemauth.disablerootlogin' -Method PATCH -Credential $newcred -Body $AppMode -ContentType 'application/json'
+$bashresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/db/systemauth.disablebash" -Method PATCH -Credential $newcred -Body $AppMode -ContentType 'application/json'
+$rootresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/db/systemauth.disablerootlogin" -Method PATCH -Credential $newcred -Body $AppMode -ContentType 'application/json'
 
 #Write-Host $bashresponse
 #Write-Host $rootresponse
 
 #STIG NET0812
 #NTP
-$ntpresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/ntp/' -Method PATCH -Credential $newcred -Body $ntpjson -ContentType 'application/json'
+$ntpresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/ntp/" -Method PATCH -Credential $newcred -Body $ntpjson -ContentType 'application/json'
 
 #Write-Host $ntpresponse
 
 #[STIG NET1639] 
 #HTTPD Timeouts
-$httpdresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/httpd/' -Method PATCH -Credential $newcred -Body $httpdjson -ContentType 'application/json'
+$httpdresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/httpd/" -Method PATCH -Credential $newcred -Body $httpdjson -ContentType 'application/json'
 #Write-Host $httpdresponse
 
 #[STIG NET1645] 
 #SSHD
-$sshdresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/sshd' -Method PATCH -Credential $newcred -Body $sshdjson -ContentType 'application/json'
+$sshdresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/sshd" -Method PATCH -Credential $newcred -Body $sshdjson -ContentType 'application/json'
 #Write-Host $sshdresponse
 
 #HTTPD / SSH ACL Allowe
-$aclresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/httpd' -Method PATCH -Credential $newcred -Body $acljson -ContentType 'application/json'
+$aclresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/httpd" -Method PATCH -Credential $newcred -Body $acljson -ContentType 'application/json'
 
 #[STIG NET0405]
 #Call Home Disable
-$chresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/software/update' -Method PATCH -Credential $newcred -Body $chjson -ContentType 'application/json'
+$chresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/software/update" -Method PATCH -Credential $newcred -Body $chjson -ContentType 'application/json'
 
 #Write-Host $chresponse
 
 #[STIG NET1665]
 #SNMP Remoce
-$snmpresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/snmp/communities/comm-public' -Method DELETE -Credential $newcred -ContentType 'application/json'
+$snmpresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/snmp/communities/comm-public" -Method DELETE -Credential $newcred -ContentType 'application/json'
 
 #Write-Host $snmpresponse
 
 #Rename / Disable Default Admin
-$userresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/auth/user' -Method POST -Credential $newcred -Body $o -ContentType 'application/json'
+$userresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/auth/user" -Method POST -Credential $newcred -Body $o -ContentType 'application/json'
 #Added patch to support updating user on following executions, i.e. password update.
-$updateuserresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/auth/user/xadmin' -Method PATCH -Credential $newcred -Body $o -ContentType 'application/json'
+$updateuserresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/auth/user/xadmin" -Method PATCH -Credential $newcred -Body $o -ContentType 'application/json'
 #set partition access and role
-$updateroleresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/auth/user/xadmin' -Method PATCH -Credential $newcred -Body $rolejson -ContentType 'application/json'
-$defadminresponse = Invoke-RestMethod 'https://f53.f5lab.com/mgmt/tm/sys/db/systemauth.primaryadminuser' -Method PATCH -Credential $newcred -Body $defadmin -ContentType 'application/json'
-
+$updateroleresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/auth/user/xadmin" -Method PATCH -Credential $newcred -Body $rolejson -ContentType 'application/json'
+$defadminresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/db/systemauth.primaryadminuser" -Method PATCH -Credential $newcred -Body $defadmin -ContentType 'application/json'
