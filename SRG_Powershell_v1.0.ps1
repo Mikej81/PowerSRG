@@ -43,7 +43,8 @@ $httpdjson = $httpvals | ConvertTo-Json
 $sshdvals = @{
     inactivityTimeout = 600
     include = "Protocol 2
-    MaxAuthTries 3"
+    MaxAuthTries 3
+    Ciphers aes128-ctr,aes192-ctr,aes256-ctr"
     }   
 $sshdjson = $sshdvals | ConvertTo-Json
 
