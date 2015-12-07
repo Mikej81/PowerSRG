@@ -1,5 +1,5 @@
 # PowerSRG (PowerShell SRG)
-# Powershell Script to automate STIG/SRG configuration on an F5 BIG-IP.
+# Powershell Script to automate Base BIG-IP hardening, and STIG/SRG configuration.
  Michael Coleman, M.Coleman@F5.Com
 
 
