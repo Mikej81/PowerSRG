@@ -10,7 +10,15 @@ $setfalse = @{value= $false}
 $jsontrue = $settrue | ConvertTo-Json
 $jsonfalse = $setfalse | ConvertTo-Json
 
+
+
 $newcred = Get-Credential -Message "Please enter current credentials for the F5 Admin account."
+#Set up variables to capture user/pass for remote AAA token generation.
+$newcred_user 
+$newcred_pass
+
+$x_f5_auth_token = RemoteAuth($newcred_user, $newcred_pass)
+
 $testcon = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/version" -Method GET -Credential $newcred -ContentType 'application/json' -TimeoutSec 5
 if ($testcon) {
     $ver = $testcon.entries.'https://localhost/mgmt/tm/sys/version/0'.nestedStats.entries.Version.description
@@ -23,7 +31,11 @@ if ($testcon) {
     ##TMOS Version 12 Only Configs
     #Write-Host [version]$ver
     [System.Windows.Forms.MessageBox]::Show("Success:  Script has been successfully tested on this version.  Prepare for the pop-ups!", "Connection Successful.") 
-    
+
+    #Set Up Headers
+    $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
+    $headers.Add("X-F5-AUTH-Token",$x_f5_auth_token)
+
     }
     elseif ([version]$ver -le 11.5) {
     ##TMOS Version Less than or Equal to 11.5
@@ -215,8 +227,6 @@ $defadminresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/db/systema
 
 }
 
-
-
 #Powershell Calls use space for delimiter, not Comma, and no parenthesis
 #so: icontrol host path method credential body
 Function icontrol($ic_host, $ic_path, $ic_method, $ic_creds, [Parameter(Mandatory=$False)][string]$ic_body) 
@@ -228,10 +238,29 @@ $ic_uri = $ic_host + $ic_path
  $webRequest.Method = $ic_method
 
     if ($ic_method -eq "GET") {
-        $ic_results = Invoke-RestMethod "https://$ic_host$ic_path" -Method $webRequest.Method -Credential $ic_creds -ContentType 'application/json'
+        $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -ContentType 'application/json'
     }
     else {
-        $ic_results = Invoke-RestMethod "https://$ic_host$ic_path" -Method $webRequest.Method -Credential $ic_creds -Body $ic_body -ContentType 'application/json'
+        $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -Body $ic_body -ContentType 'application/json'
     }
     return $ic_results
+}
+
+#Remote AAA User Token only works on TMOS v12.0+
+Function RemoteAuth($remote_user, $remote_password, $remote_host)
+{
+$remoteAAAjson = @"
+    {
+    "username": "$remote_user",
+    "password": "$remote_password",
+    "loginProviderName": "tmos"
+    }
+"@
+
+$remote_token = Invoke-RestMethod "https://$remote_host/mgmt/shared/authn/login" -Method POST -ContentType 'application/json'
+
+$authtoken = $remote_token.token
+
+return $authtoken
+
 }
