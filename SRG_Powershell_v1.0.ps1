@@ -411,3 +411,61 @@ icontrol $bigiphost $certpath "POST" $newcred $cert_json $logging
 icontrol $bigiphost $keypath "POST" $newcred $key_json $logging
 
 }
+
+#File Dialog window to allow easy selection of files.
+Function Get-FileName($initialDirectory)
+{   
+ [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |
+ Out-Null
+
+ $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+ $OpenFileDialog.initialDirectory = $initialDirectory
+ $OpenFileDialog.filter = "All files (*.*)| *.*"
+ $OpenFileDialog.ShowDialog() | Out-Null
+ $OpenFileDialog.filename
+}
+
+#To be used later
+function Get-FileEncoding
+{
+    [CmdletBinding()] Param (
+     [Parameter(Mandatory = $True, ValueFromPipelineByPropertyName = $True)] [string]$Path
+    )
+
+    [byte[]]$byte = get-content -Encoding byte -ReadCount 4 -TotalCount 4 -Path $Path
+ 
+    if ( $byte[0] -eq 0xef -and $byte[1] -eq 0xbb -and $byte[2] -eq 0xbf )
+    { Write-Output 'UTF8' }
+    elseif ($byte[0] -eq 0xfe -and $byte[1] -eq 0xff)
+    { Write-Output 'Unicode' }
+    elseif ($byte[0] -eq 0 -and $byte[1] -eq 0 -and $byte[2] -eq 0xfe -and $byte[3] -eq 0xff)
+    { Write-Output 'UTF32' }
+    elseif ($byte[0] -eq 0x2b -and $byte[1] -eq 0x2f -and $byte[2] -eq 0x76)
+    { Write-Output 'UTF7'}
+    else
+    { Write-Output 'ASCII' }
+}
+
+Function UploadCrypto($hostname, $credentials)
+{
+    ##does not account for chunking required for files over 1MB, yet.  Not many Certs/Keys will be over this size, but wont hurt to add better error handling.
+    [int]$chunk_size = 512 * 1024
+    $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
+    $headers.Add("Content-Type",'application/octet-stream')
+
+    $file_obj = Get-FileName -initialDirectory "C:\"
+    $file_enc = Get-FileEncoding $file_obj
+    $file_content = Get-Content -Path $file_obj
+    $file_base = Get-ChildItem $file_obj -name
+    $file_start = 0
+    $file_end = (Get-Item $file_obj).Length
+    [string]$content_range = [string]$file_start+ "-"+ [string]([int]$file_end-1)+ "/"+ [string]$file_end
+    $headers.add("Content-Range", "$content_range")
+
+    $upload_path = "/mgmt/shared/file-transfer/uploads/$file_base"
+    $upload_uri = "https://"+$hostname+$upload_path
+
+    $uploadResults = Invoke-RestMethod $upload_uri -Method POST -Credential $credentials -InFile $file_obj -Headers $headers -ContentType 'application/octet-stream'
+
+    return $uploadResults
+}
