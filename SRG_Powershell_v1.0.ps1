@@ -12,6 +12,18 @@ $setfalse = @{value= $false}
 $jsontrue = $settrue | ConvertTo-Json
 $jsonfalse = $setfalse | ConvertTo-Json
 
+##Classification Settings:  class/unclass
+$classification = "unclass"
+if ($classification -eq "unclass")
+{
+    $ui_advisory_color = "green" 
+    $ui_advisory_text = "//UNCLASSIFIED//"
+}
+else {
+    $ui_advisory_color = "red" 
+    $ui_advisory_text = "//CLASSIFIED//"
+}
+
 $bannerText = "You are accessing a U.S. Government (USG) Information System (IS) that is provided for USG-authorized use only. By using this IS (which includes any device attached to this IS), you consent to the following conditions:\r\n\r\nThe USG routinely intercepts and monitors communications on this IS for purposes including, but not limited to, penetration testing, COMSEC monitoring, network operations and defense, personnel misconduct (PM), law enforcement (LE), and counterintelligence (CI) investigations.\r\n\r\nAt any time, the USG may inspect and seize data stored on this IS.\r\nCommunications using, or data stored on, this IS are not private, are subject to routine monitoring, interception, and search, and may be disclosed or used for any USG authorized purpose.\r\nThis IS includes security measures (e.g., authentication and access controls) to protect USG interests--not for your personal benefit or privacy.\r\n\r\nNotwithstanding the above, using this IS does not constitute consent to PM, LE or CI investigative searching or monitoring of the content of privileged communications, or work product, related to personal representation or services by attorneys, psychotherapists, or clergy, and their assistants. Such communications and work product are private and confidential. See User Agreement for details."
 
 $newcred = Get-Credential -Message "Please enter current credentials for the F5 Admin account."
@@ -24,7 +36,8 @@ $newcred_pass
 $testcon = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/version" -Method GET -Credential $newcred -ContentType 'application/json' -TimeoutSec 5
 if ($testcon) {
     $ver = $testcon.entries.'https://localhost/mgmt/tm/sys/version/0'.nestedStats.entries.Version.description
-    $testauth = Invoke-RestMethod "https://$bigiphost/mgmt/tm/auth/source" -Method GET -Credential $newcred -ContentType 'application/json'
+    #$testauth = Invoke-RestMethod "https://$bigiphost/mgmt/tm/auth/source" -Method GET -Credential $newcred -ContentType 'application/json'
+    $testauth = icontrol $bigiphost "/mgmt/tm/auth/source" "GET" $newcred $logging
     if ($testauth) {
         $AAAsource = $testauth.type
     }
@@ -32,7 +45,7 @@ if ($testcon) {
     if ($ver -contains "12.*" ){
     ##TMOS Version 12 Only Configs
     #Write-Host [version]$ver
-    [System.Windows.Forms.MessageBox]::Show("Success:  Script has been successfully tested on this version.  Prepare for the pop-ups!", "Connection Successful.") 
+    [System.Windows.Forms.MessageBox]::Show("Success:  Script has been successfully tested on this version.  Configuration will continue.", "Connection Successful.") 
 
     #Set Up Headers
     if ($AAAsource -ne "local"){
@@ -50,7 +63,7 @@ if ($testcon) {
     else {
     ##TMOS Version 11.6
     #Write-Host [version]$ver 
-        [System.Windows.Forms.MessageBox]::Show("Success:  Script has been successfully tested on this version. Configuration will continue.", "Connection Successful.") 
+        [System.Windows.Forms.MessageBox]::Show("Success:  Script has been successfully tested on this version. Configuration will continue.  Question boxes left blank will leave existing configuration unmodified.", "Connection Successful.") 
     }
 
 #Configurations supported on all tested platforms.  11.6 & 12.0
@@ -91,9 +104,44 @@ $ntpjson = $ntpconv | ConvertTo-Json
 #NTP
 if ($NTPQuestion) {
     #$ntpresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/ntp/" -Method PATCH -Credential $newcred -Body $ntpjson -ContentType 'application/json'
-    $ntpresponse = icontrol $bigiphost "/mgmt/tm/sys/ntp/" "PATCH" $newcred $ntpjson $logging
+    icontrol $bigiphost "/mgmt/tm/sys/ntp/" "PATCH" $newcred $ntpjson $logging
 }
 
+#Global Settings; HTTPD UI Banner
+$globalvals = @"
+{
+"guiSecurityBanner":"enabled",
+"guiSecurityBannerText": "$bannerText"
+}
+"@
+$globalconv = $globalvals | ConvertFrom-Json
+$globaljson = $globalconv | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/sys/global-settings" "PATCH" $newcred $globaljson $logging
+
+#Advisory Banners.  PITA that its 3 seperate DB settings
+$advisoryenable = @"
+{
+ "value": "$True"
+}
+"@
+$advisoryenable_json = $advisoryenable | ConvertFrom-Json | ConvertTo-Json
+$advisoryColor = @"
+{
+ "value": "$ui_advisory_color"
+}
+"@
+$advisoryColor_json = $advisoryColor | ConvertFrom-Json | ConvertTo-Json 
+$advisoryText = @"
+{
+ "value": "$ui_advisory_text"
+}
+"@
+$advisoryText_json = $advisoryText | ConvertFrom-Json | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.enabled" "PATCH" $newcred $advisoryenable_json $logging
+icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.color" "PATCH" $newcred $advisoryColor_json $logging
+icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.text" "PATCH" $newcred $advisoryText_json $logging
 
 #HTTPD Settings
 $httpvals = @{
@@ -103,12 +151,12 @@ $httpdjson = $httpvals | ConvertTo-Json
 
 #[STIG NET1639] 
 #HTTPD Timeouts
-$httpdresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/httpd/" -Method PATCH -Credential $newcred -Body $httpdjson -ContentType 'application/json'
-
-#Write-Host $httpdresponse
+#$httpdresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/httpd/" -Method PATCH -Credential $newcred -Body $httpdjson -ContentType 'application/json'
+icontrol $bigiphost "/mgmt/tm/sys/httpd/" "PATCH" $newcred $httpdjson
 
 #HTTPD & ACL Settings
-$aclallow = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Admin GUI / SSH Allowed Subnet or IP.  You can enter IP's seperated by a space, or Network ID / Subnet (NON-CIDR)", "New Admin Credentials (xadmin)") 
+#HTTPD / SSH ACL Allowed
+$aclallow = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Admin GUI / SSH Allowed Subnet or IP.  You can enter IP's seperated by a space, or Network ID / Subnet (NON-CIDR)", "Management Access ACL") 
 $httpdacl = @"
 {
     "allow": [ "$aclallow" ]
@@ -117,40 +165,81 @@ $httpdacl = @"
 $aclconv = $httpdacl | ConvertFrom-Json
 $acljson = $aclconv | ConvertTo-Json
 
-#HTTPD / SSH ACL Allowed
 if ($aclallow){
-    $aclresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/httpd" -Method PATCH -Credential $newcred -Body $acljson -ContentType 'application/json'
-    $sshdaclresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/sshd" -Method PATCH -Credential $newcred -Body $acljson -ContentType 'application/json'
-
-    #write-host $aclresponse
-    #write-host $sshdaclresponse
-
+    icontrol $bigiphost "/mgmt/tm/sys/httpd" "PATCH" $newcred $acljson $logging
+    icontrol $bigiphost "/mgmt/tm/sys/sshd" "PATCH" $newcred $acljson $logging
 }
 
-#Call Home
+#[STIG NET0405]
+#Call Home Disable
 $chval = @{
     autoCheck = 'disabled'
 }
 $chjson = $chval | ConvertTo-Json
 
-#[STIG NET0405]
-#Call Home Disable
-$chresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/software/update" -Method PATCH -Credential $newcred -Body $chjson -ContentType 'application/json'
+icontrol $bigiphost "/mgmt/tm/sys/software/update" "PATCH" $newcred $chjson $logging
 
-#Write-Host $chresponse
 
 #[STIG NET1665]
 #SNMP Remove
-$snmpcheck = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/snmp/communities/" -Method GET -Credential $newcred -ContentType 'application/json'
+$snmpcheck = icontrol $bigiphost "/mgmt/tm/sys/snmp/communities/" "GET" $newcred
 if ($snmpcheck) {
     foreach ($item in $snmpcheck.items) {
         if ($item.communityName -eq "comm-public") {
             $snmpstring = $item.name
-            $snmpresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/snmp/communities/$snmpstring" -Method DELETE -Credential $newcred -ContentType 'application/json'
+            #$snmpresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/snmp/communities/$snmpstring" -Method DELETE -Credential $newcred -ContentType 'application/json'
+            icontrol $bigiphost "/mgmt/tm/sys/snmp/communities/$snmpstring" "DELETE" $newcred
             }
         }
 }
-#Write-Host $snmpresponse
+
+##Strict Password Policy Enforcement
+##Only say yes if you want strict passwords
+
+
+$strictpolicy = @"
+{
+    "expirationWarning": "7",
+    "maxDuration": "90",
+    "maxLoginFailures": "3",
+    "minDuration": "1",
+    "minimumLength": "8",
+    "passwordMemory": "3",
+    "policyEnforcement": "enabled",
+    "requiredLowercase": "2",
+    "requiredNumeric": "2",
+    "requiredSpecial": "2",
+    "requiredUppercase": "2"
+}
+"@
+$strictJson = $strictpolicy | ConvertFrom-Json | ConvertTo-Json
+##Default Policy
+$laxpolicy = @"
+{
+    "expirationWarning": "7",
+    "maxDuration": "99999",
+    "maxLoginFailures": "0",
+    "minDuration": "0",
+    "minimumLength": "6",
+    "passwordMemory": "0",
+    "policyEnforcement": "disabled",
+    "requiredLowercase": "0",
+    "requiredNumeric": "0",
+    "requiredSpecial": "0",
+    "requiredUppercase": "0"
+}
+"@
+$laxJson = $laxpolicy | ConvertFrom-Json | ConvertTo-Json
+if ($AAAsource -eq "local") {
+$strictPolicyQuestion = [Microsoft.VisualBasic.Interaction]::MsgBox("Do you want to enable strict password policy for local accounts?  Select No to disable, Cancel to skip.", 'YesNoCancel,Question', "Strict Password Policy")
+    if ($strictPolicyQuestion -eq 'Yes') {
+        icontrol $bigiphost "/mgmt/tm/auth/password-policy" "PATCH" $newcred $strictJson $logging
+    }
+    elseif ($strictPolicyQuestion -eq 'No') {
+        icontrol $bigiphost "/mgmt/tm/auth/password-policy" "PATCH" $newcred $laxJson $logging
+    }
+
+}
 
 #Enable or Disable App Mode [jsontrue/jsonfalse]
 #Allow turning off and on App Mode Lite
@@ -165,11 +254,8 @@ Else {
 #STIG NET0700
 #App Mode Lite / Disable Bash & Disable Root
 
-$bashresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/db/systemauth.disablebash" -Method PATCH -Credential $newcred -Body $AppMode -ContentType 'application/json'
-$rootresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/db/systemauth.disablerootlogin" -Method PATCH -Credential $newcred -Body $AppMode -ContentType 'application/json'
-
-#Write-Host $bashresponse
-#Write-Host $rootresponse
+icontrol $bigiphost "/mgmt/tm/sys/db/systemauth.disablebash" "PATCH" $newcred $AppMode
+icontrol $bigiphost "/mgmt/tm/sys/db/systemauth.disablerootlogin" "PATCH" $newcred $AppMode
 
 #Config Completed Message
 #[System.Windows.Forms.MessageBox]::Show("Configurations completed.") 
@@ -189,7 +275,7 @@ return
 if ($AAAsource -eq "local") {
 ##Maybe ask what the new Admin should be called?  Add checking to see if xAdmin already exists, and if so, then what?
 
-$adminpasswd = [Microsoft.VisualBasic.Interaction]::InputBox("Enter New Admin User Password", "password") 
+$adminpasswd = [Microsoft.VisualBasic.Interaction]::InputBox("Enter New Admin User Password", "New Admin Credentials (xadmin)") 
 
 #Admin User
 $jsonuser = @"
@@ -209,7 +295,6 @@ $jsonuser = @"
 $user = $jsonuser | ConvertFrom-Json
 $o = $user | ConvertTo-Json
 
-#Write-Host $o
 
 $rolejson = @"
 {
@@ -226,6 +311,7 @@ $defadmin = @"
 {"value": "xadmin"}
 "@
 
+if ($adminpasswd){
 #Rename / Disable Default Admin
 $userresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/auth/user" -Method POST -Credential $newcred -Body $o -ContentType 'application/json'
 #Added patch to support updating user on following executions, i.e. password update.
@@ -233,7 +319,7 @@ $updateuserresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/auth/user/xa
 #set partition access and role
 $updateroleresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/auth/user/xadmin" -Method PATCH -Credential $newcred -Body $rolejson -ContentType 'application/json'
 $defadminresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/db/systemauth.primaryadminuser" -Method PATCH -Credential $newcred -Body $defadmin -ContentType 'application/json'
-
+}
 }
 
 #Powershell Calls use space for delimiter, not Comma, and no parenthesis
@@ -253,7 +339,7 @@ $ic_uri = $ic_host + $ic_path
         $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -Body $ic_body -ContentType 'application/json'
     }
     if ($log_val){
-        write-host $ic_results
+        write-host $ic_results | fl
     }
     return $ic_results
 }
@@ -274,5 +360,54 @@ $remote_token = Invoke-RestMethod "https://$remote_host/mgmt/shared/authn/login"
 $authtoken = $remote_token.token
 
 return $authtoken
+
+}
+
+Function ExtractPKCS12($path_to_pkcs12, $cert_key_name, $passphrase)
+{
+$bash_path = "/mgmt/tm/util/bash" 
+$pkcs12_cert_json = @"
+{
+    "command": "run", 
+    "utilCmdArgs": "-c \"openssl pkcs12 -in $path_to_pkcs12 -nokeys -out $cert_key_name.crt -password pass:$passphrase -nodes\""
+
+}
+"@
+$pkcs12_key_json = @"
+{
+    "command": "run", 
+    "utilCmdArgs": "-c \"openssl pkcs12 -in $path_to_pkcs12 -nocerts -out $cert_key_name.key -password pass:$passphrase -nodes\""
+
+}
+"@
+icontrol $bigiphost $bash_path "POST" $newcred $pkcs12_cert_json $logging
+icontrol $bigiphost $bash_path "POST" $newcred $pkcs12_key_json $logging
+
+}
+
+Function InstallCrypto ($pair_name, $pair_path)
+{
+$certpath = "/mgmt/tm/sys/crypto/cert"
+$keypath = "/mgmt/tm/sys/crypto/key"
+
+$cert_vals = @"
+{
+"command":"install",
+"name":"$pair_name",
+"from-local-file":"$pair_path.crt"
+}
+"@
+$cert_json = $cert_vals | ConvertFrom-Json | ConvertTo-Json
+$key_vals = @"
+{
+"command":"install",
+"name":"$pair_name",
+"from-local-file":"$pair_path.key"
+}
+"@
+$key_json = $key_vals | ConvertFrom-Json | ConvertTo-Json
+
+icontrol $bigiphost $certpath "POST" $newcred $cert_json $logging
+icontrol $bigiphost $keypath "POST" $newcred $key_json $logging
 
 }
