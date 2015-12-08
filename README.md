@@ -11,7 +11,8 @@
 Figure out work around for that. Possibly switch to local, update,
 switch back to AAA. What effects on currently logged in user?
 
--Should probably add support for Remote AAA admin users...
+-Added Remote Auth function for remote AAA token generation.  Code incomplete.
+ -Only works with TMOS v12.0+
 
 -Added iControl Function, need to move all requests.
 
