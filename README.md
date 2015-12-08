@@ -8,7 +8,11 @@
 
 # *TODO:
 
--Working on CryptoUpload(), and CreateClientSSLProfile() functions.  These will serve to upload NTP keys, SSLProfile cert/keys, and install accordingly.
+-Working on CreateClientSSLProfile() function.
+
+-Workflow Upload, Split (key/pair, as needed), install.  Tie to CreateClientSSLProfile() when completed.
+
+-Work on upload NTP keys, and install accordingly.
 
 -Found Admin rename / disable does not work when using Remote AAA.  Figure out work around for that. Possibly switch to local, update,
 switch back to AAA. What effects on currently logged in user?
@@ -27,3 +31,8 @@ switch back to AAA. What effects on currently logged in user?
 
 -InstallCrypto() - Installs Cert/Key pair from BIG-IP filesystem.
 
+-UploadCrypto() - Allows uploading of Certs, Keys, and Pairs.
+
+-Get-Filename() - Uses File Dialog window to allow for easy selection of files for upload.
+
+-Get-FileEncoding() - Determines file encoding type, for use later.
