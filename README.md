@@ -10,6 +10,7 @@ Then, run the script.  The message boxes will guide you...
 
 # History
 12/7/2015:  Added Version control, error handling, base icontrol function.  Moved most mods inside testcon, ensures that connection is good, and using a supported version of TMOS.
+
 12/8/2015:  Lots of bug fixes, code cleanup, added functions.
 
 # *TODO:
