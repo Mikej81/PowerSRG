@@ -24,6 +24,10 @@ Then, run the script.  The message boxes will guide you...
 -Found Admin rename / disable does not work when using Remote AAA.  Figure out work around for that. Possibly switch to local, update,
 switch back to AAA. What effects on currently logged in user?
 
+-SelfIP Lockdown
+
+-Concurrent GUI Users
+
 # Verified Working:
 -11.6.0
 
@@ -43,3 +47,27 @@ switch back to AAA. What effects on currently logged in user?
 -Get-Filename() - Uses File Dialog window to allow for easy selection of files for upload.
 
 -Get-FileEncoding() - Determines file encoding type, for use later.
+
+# STIG / SRG / CVE / NISTP 800-53r4 Controls Resolved with this script:
+
+NIST SP 800-53r4 - Password Strength Policy — IA-5(1)
+
+NIST SP 800-53r4 - Usage banner — AC-8
+
+NIST SP 800-53r4 - Maximum Failed Login Attempts — AC-7
+
+NIST SP 800-53r4 / STIG NET1639 - Idle Timeouts for Management Access — AC-2(5), SC-10
+
+NIST SP 800-53r4 - Session Locking and Termination — AC-11, AC-12 (Advice-only block)
+
+NIST SP 800-53r4 / STIG NET0812 - NTP Configuration — AU-8(1,2)
+
+STIG NET1645 - SSHD Lockdown
+
+STIG NET0405 - Call Home Disable.
+
+STIG NET1665 - Remove default SNMP communities
+
+STIG NET0700 - Appliance Mode
+
+
