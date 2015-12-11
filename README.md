@@ -48,7 +48,7 @@ switch back to AAA. What effects on currently logged in user?
 
 -Get-FileEncoding() - Determines file encoding type, for use later.
 
-# STIG / SRG / CVE / NISTP 800-53r4 Controls Resolved with this script:
+# STIG, SRG, CVE, NIST SP 800-53r4 Controls, and General Hardening Resolved with this script:
 
 NIST SP 800-53r4 - Password Strength Policy — IA-5(1)
 
@@ -69,5 +69,3 @@ STIG NET0405 - Call Home Disable.
 STIG NET1665 - Remove default SNMP communities
 
 STIG NET0700 - Appliance Mode
-
-
