@@ -469,3 +469,57 @@ Function UploadCrypto($hostname, $credentials)
 
     return $uploadResults
 }
+
+$cookie_encrypt = @"
+when RULE_INIT {
+ 
+    # Cookie name prefix
+    set static::ck_pattern "BIGipServer*"
+ 
+    # Log debug to /var/log/ltm? 1=yes, 0=no)
+    set static::ck_debug 1
+ 
+    # Cookie encryption passphrase
+    # Change this to a custom string!
+    set static::ck_pass "mypass1234"
+}
+when HTTP_REQUEST {
+ 
+    if {$static::ck_debug}{log local0. "Request cookie names: [HTTP::cookie names]"}
+    
+    # Check if the cookie names in the request match our string glob pattern
+    if {[set cookie_names [lsearch -all -inline [HTTP::cookie names] $static::ck_pattern]] ne ""}{
+ 
+        # We have at least one match so loop through the cookie(s) by name
+        if {$static::ck_debug}{log local0. "Matching cookie names: [HTTP::cookie names]"}
+        foreach cookie_name $cookie_names {
+            
+            # Decrypt the cookie value and check if the decryption failed (null return value)
+            if {[HTTP::cookie decrypt $cookie_name $static::ck_pass] eq ""}{
+ 
+                # Cookie wasn't encrypted, delete it
+                if {$static::ck_debug}{log local0. "Removing cookie as decryption failed for $cookie_name"}
+                HTTP::cookie remove $cookie_name
+            }
+        }
+        if {$static::ck_debug}{log local0. "Cookie header(s): [HTTP::header values Cookie]"}
+    }
+}
+when HTTP_RESPONSE {
+ 
+    if {$static::ck_debug}{log local0. "Response cookie names: [HTTP::cookie names]"}
+    
+    # Check if the cookie names in the request match our string glob pattern
+    if {[set cookie_names [lsearch -all -inline [HTTP::cookie names] $static::ck_pattern]] ne ""}{
+        
+        # We have at least one match so loop through the cookie(s) by name
+        if {$static::ck_debug}{log local0. "Matching cookie names: [HTTP::cookie names]"}
+        foreach cookie_name $cookie_names {
+            
+            # Encrypt the cookie value
+            HTTP::cookie encrypt $cookie_name $static::ck_pass
+        }
+        if {$static::ck_debug}{log local0. "Set-Cookie header(s): [HTTP::header values Set-Cookie]"}
+    }
+}
+"@
