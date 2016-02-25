@@ -13,6 +13,8 @@ Then, run the script.  The message boxes will guide you...
 
 12/8/2015:  Lots of bug fixes, code cleanup, added functions.
 
+2/25/2016:  Added Cookie encryption iRule.
+
 # *TODO:
 
 -Working on CreateClientSSLProfile() function.
@@ -27,6 +29,8 @@ switch back to AAA. What effects on currently logged in user?
 -SelfIP Lockdown
 
 -Concurrent GUI Users
+
+-Attach cookie encryption irule to HTTPS Virtual Servers
 
 # Verified Working:
 -11.6.0
