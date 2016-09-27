@@ -4,6 +4,7 @@
  
 # Instructions
 Before running this script, you will need set ScriptExecution policy level:
+
 Set-ExecutionPolicy RemoteSigned
 
 Then, run the script.  The message boxes will guide you...
@@ -14,6 +15,8 @@ Then, run the script.  The message boxes will guide you...
 12/8/2015:  Lots of bug fixes, code cleanup, added functions.
 
 2/25/2016:  Added Cookie encryption iRule.
+
+9/27/2016:  Moved some code around for Windows 10 support.  Tightened security around supported ciphers and protocols for SSHD/HTTPD.
 
 # *TODO:
 
@@ -36,6 +39,8 @@ switch back to AAA. What effects on currently logged in user?
 -11.6.0
 
 -12.0.0
+
+-12.1.1
 
 #Functions
 -iControl() - streamlines the PowerShell Invoke-RestMethod, adds logging / debug.
