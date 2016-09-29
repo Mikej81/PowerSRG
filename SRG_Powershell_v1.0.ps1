@@ -2,7 +2,9 @@
 #Powershell SRG Script
 #Michael Coleman, M.Coleman@F5.com
 ##################################
+[void][System.Reflection.Assembly]::LoadWithPartialName("System.Web")
 [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+$long_pass = [System.Web.Security.Membership]::GeneratePassword(32,8)
 
 #Powershell Calls use space for delimiter, not Comma, and no parenthesis
 #so: icontrol host path method credential body
@@ -111,7 +113,7 @@ if ($testcon) {
 #SSHD Settings
 $sshdvals = @"
 {
-    "inactivityTimeout":  "600",
+    "inactivityTimeout":  "900",
     "banner":  "enabled",
     "banner-text":  "$bannerText",
 "include":  "Protocol 2\r\nMaxAuthTries 3\r\nCiphers aes128-ctr,aes192-ctr,aes256-ctr\r\nMACs hmac-sha1,hmac-ripemd160"
@@ -185,9 +187,11 @@ icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.text" "PATCH" $newcred $advisor
 
 #HTTPD Settings
 $httpvals = @{
-    authPamIdleTimeout= 600
+    maxClients= 10
+    authPamIdleTimeout= 900
     sslCiphersuite= 'ALL:!ADH:!RC4:!RSA:!EXPORT:!EXP:!LOW:!MD5:!aNULL:!eNULL'
-    sslProtocol= 'all -SSLv2 -SSLv3'}
+    sslProtocol= 'all -SSLv2 -SSLv3 -TLSv1'}
+
 $httpdjson = $httpvals | ConvertTo-Json
 
 #[STIG NET1639] 
@@ -470,3 +474,13 @@ function UploadCrypto($hostname, $credentials)
 
     return $uploadResults
 }
+
+$encrypt_cookie_json = @"
+{
+    "kind": "tm:ltm:rule:rulestate",
+    "name": "_encrypt_http_cookies",
+    "apiAnonymous": "when RULE_INIT {\n \n\t# Cookie name prefix\n\tset static::ck_pattern \"BIGipServer*\"\n \n\t# Log debug to /var/log/ltm? 1=yes, 0=no)\n\tset static::ck_debug 1\n \n\t# Cookie encryption passphrase\n\t# Change this to a custom string!\n\tset static::ck_pass \"mypass1234\"\n}\nwhen HTTP_REQUEST {\n \n\tif {$static::ck_debug}{log local0. \"Request cookie names: [HTTP::cookie names]\"}\n\t\n\t# Check if the cookie names in the request match our string glob pattern\n\tif {[set cookie_names [lsearch -all -inline [HTTP::cookie names] $static::ck_pattern]] ne \"\"}{\n \n\t\t# We have at least one match so loop through the cookie(s) by name\n\t\tif {$static::ck_debug}{log local0. \"Matching cookie names: [HTTP::cookie names]\"}\n\t\tforeach cookie_name $cookie_names {\n\t\t\t\n\t\t\t# Decrypt the cookie value and check if the decryption failed (null return value)\n\t\t\tif {[HTTP::cookie decrypt $cookie_name $static::ck_pass] eq \"\"}{\n \n\t\t\t\t# Cookie wasn't encrypted, delete it\n\t\t\t\tif {$static::ck_debug}{log local0. \"Removing cookie as decryption failed for $cookie_name\"}\n\t\t\t\tHTTP::cookie remove $cookie_name\n\t\t\t}\n\t\t}\n\t\tif {$static::ck_debug}{log local0. \"Cookie header(s): [HTTP::header values Cookie]\"}\n\t}\n}\nwhen HTTP_RESPONSE {\n \n\tif {$static::ck_debug}{log local0. \"Response cookie names: [HTTP::cookie names]\"}\n\t\n\t# Check if the cookie names in the request match our string glob pattern\n\tif {[set cookie_names [lsearch -all -inline [HTTP::cookie names] $static::ck_pattern]] ne \"\"}{\n\t\t\n\t\t# We have at least one match so loop through the cookie(s) by name\n\t\tif {$static::ck_debug}{log local0. \"Matching cookie names: [HTTP::cookie names]\"}\n\t\tforeach cookie_name $cookie_names {\n\t\t\t\n\t\t\t# Encrypt the cookie value\n\t\t\tHTTP::cookie encrypt $cookie_name $static::ck_pass\n\t\t}\n\t\tif {$static::ck_debug}{log local0. \"Set-Cookie header(s): [HTTP::header values Set-Cookie]\"}\n\t}\n}"
+}
+"@
+
+icontrol $bigiphost "/mgmt/tm/ltm/rule" "POST" $newcred $encrypt_cookie_json $logging
