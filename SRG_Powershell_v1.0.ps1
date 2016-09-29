@@ -2,7 +2,48 @@
 #Powershell SRG Script
 #Michael Coleman, M.Coleman@F5.com
 ##################################
-[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic') 
+[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+
+#Powershell Calls use space for delimiter, not Comma, and no parenthesis
+#so: icontrol host path method credential body
+function icontrol($ic_host, $ic_path, $ic_method, $ic_creds, [Parameter(Mandatory=$False)][string]$ic_body, [Parameter(Mandatory=$False)][bool]$log_val) 
+ {
+
+$ic_uri = $ic_host + $ic_path
+
+ $webRequest = [System.Net.WebRequest]::Create("https://"+$ic_uri)
+ $webRequest.Method = $ic_method
+
+    if ($ic_method -eq "GET") {
+        $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -ContentType 'application/json'
+    }
+    else {
+        $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -Body $ic_body -ContentType 'application/json'
+    }
+    if ($log_val){
+        write-host $ic_results | fl
+    }
+    return $ic_results
+} 
+
+#Remote AAA User Token only works on TMOS v12.0+
+function RemoteAuth($remote_user, $remote_password, $remote_host)
+{
+$remoteAAAjson = @"
+    {
+    "username": "$remote_user",
+    "password": "$remote_password",
+    "loginProviderName": "tmos"
+    }
+"@
+
+$remote_token = Invoke-RestMethod "https://$remote_host/mgmt/shared/authn/login" -Method POST -ContentType 'application/json'
+
+$authtoken = $remote_token.token
+
+return $authtoken
+
+}
 
 #$debug and $verbose is/are a reserved namespace, using logging instead.
 $logging = $true
@@ -31,7 +72,6 @@ $newcred = Get-Credential -Message "Please enter current credentials for the F5 
 #Set up variables to capture user/pass for remote AAA token generation.
 $newcred_user 
 $newcred_pass
-
 
 $testcon = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/version" -Method GET -Credential $newcred -ContentType 'application/json' -TimeoutSec 5
 if ($testcon) {
@@ -74,7 +114,7 @@ $sshdvals = @"
     "inactivityTimeout":  "600",
     "banner":  "enabled",
     "banner-text":  "$bannerText",
-"include":  "Protocol 2\r\nMaxAuthTries 3\r\nCiphers aes128-ctr,aes192-ctr,aes256-ctr"
+"include":  "Protocol 2\r\nMaxAuthTries 3\r\nCiphers aes128-ctr,aes192-ctr,aes256-ctr\r\nMACs hmac-sha1,hmac-ripemd160"
 }
 "@
 $sshdconv = $sshdvals | ConvertFrom-Json   
@@ -146,7 +186,8 @@ icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.text" "PATCH" $newcred $advisor
 #HTTPD Settings
 $httpvals = @{
     authPamIdleTimeout= 600
-    sslCiphersuite= 'ALL:!ADH:!RC4:!EXPORT40:!EXP:!LOW'}
+    sslCiphersuite= 'ALL:!ADH:!RC4:!RSA:!EXPORT:!EXP:!LOW:!MD5:!aNULL:!eNULL'
+    sslProtocol= 'all -SSLv2 -SSLv3'}
 $httpdjson = $httpvals | ConvertTo-Json
 
 #[STIG NET1639] 
@@ -322,48 +363,8 @@ $defadminresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/db/systema
 }
 }
 
-#Powershell Calls use space for delimiter, not Comma, and no parenthesis
-#so: icontrol host path method credential body
-Function icontrol($ic_host, $ic_path, $ic_method, $ic_creds, [Parameter(Mandatory=$False)][string]$ic_body, [Parameter(Mandatory=$False)][bool]$log_val) 
- {
 
-$ic_uri = $ic_host + $ic_path
-
- $webRequest = [System.Net.WebRequest]::Create("https://"+$ic_uri)
- $webRequest.Method = $ic_method
-
-    if ($ic_method -eq "GET") {
-        $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -ContentType 'application/json'
-    }
-    else {
-        $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -Body $ic_body -ContentType 'application/json'
-    }
-    if ($log_val){
-        write-host $ic_results | fl
-    }
-    return $ic_results
-}
-
-#Remote AAA User Token only works on TMOS v12.0+
-Function RemoteAuth($remote_user, $remote_password, $remote_host)
-{
-$remoteAAAjson = @"
-    {
-    "username": "$remote_user",
-    "password": "$remote_password",
-    "loginProviderName": "tmos"
-    }
-"@
-
-$remote_token = Invoke-RestMethod "https://$remote_host/mgmt/shared/authn/login" -Method POST -ContentType 'application/json'
-
-$authtoken = $remote_token.token
-
-return $authtoken
-
-}
-
-Function ExtractPKCS12($path_to_pkcs12, $cert_key_name, $passphrase)
+function ExtractPKCS12($path_to_pkcs12, $cert_key_name, $passphrase)
 {
 $bash_path = "/mgmt/tm/util/bash" 
 $pkcs12_cert_json = @"
@@ -385,7 +386,7 @@ icontrol $bigiphost $bash_path "POST" $newcred $pkcs12_key_json $logging
 
 }
 
-Function InstallCrypto ($pair_name, $pair_path)
+function InstallCrypto ($pair_name, $pair_path)
 {
 $certpath = "/mgmt/tm/sys/crypto/cert"
 $keypath = "/mgmt/tm/sys/crypto/key"
@@ -413,7 +414,7 @@ icontrol $bigiphost $keypath "POST" $newcred $key_json $logging
 }
 
 #File Dialog window to allow easy selection of files.
-Function Get-FileName($initialDirectory)
+function Get-FileName($initialDirectory)
 {   
  [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |
  Out-Null
@@ -446,7 +447,7 @@ function Get-FileEncoding
     { Write-Output 'ASCII' }
 }
 
-Function UploadCrypto($hostname, $credentials)
+function UploadCrypto($hostname, $credentials)
 {
     ##does not account for chunking required for files over 1MB, yet.  Not many Certs/Keys will be over this size, but wont hurt to add better error handling.
     [int]$chunk_size = 512 * 1024
@@ -469,6 +470,7 @@ Function UploadCrypto($hostname, $credentials)
 
     return $uploadResults
 }
+<<<<<<< HEAD
 
 $encrypt_cookie_json = @"
 {
@@ -479,3 +481,5 @@ $encrypt_cookie_json = @"
 "@
 
 icontrol $bigiphost "/mgmt/tm/ltm/rule" "POST" $newcred $encrypt_cookie_json $logging
+=======
+>>>>>>> master
