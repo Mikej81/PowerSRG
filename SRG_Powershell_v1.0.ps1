@@ -2,7 +2,9 @@
 #Powershell SRG Script
 #Michael Coleman, M.Coleman@F5.com
 ##################################
+[void][System.Reflection.Assembly]::LoadWithPartialName("System.Web")
 [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+$long_pass = [System.Web.Security.Membership]::GeneratePassword(32,8)
 
 #Powershell Calls use space for delimiter, not Comma, and no parenthesis
 #so: icontrol host path method credential body
@@ -111,7 +113,7 @@ if ($testcon) {
 #SSHD Settings
 $sshdvals = @"
 {
-    "inactivityTimeout":  "600",
+    "inactivityTimeout":  "900",
     "banner":  "enabled",
     "banner-text":  "$bannerText",
 "include":  "Protocol 2\r\nMaxAuthTries 3\r\nCiphers aes128-ctr,aes192-ctr,aes256-ctr\r\nMACs hmac-sha1,hmac-ripemd160"
@@ -185,9 +187,10 @@ icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.text" "PATCH" $newcred $advisor
 
 #HTTPD Settings
 $httpvals = @{
-    authPamIdleTimeout= 600
+    maxClients= 10
+    authPamIdleTimeout= 900
     sslCiphersuite= 'ALL:!ADH:!RC4:!RSA:!EXPORT:!EXP:!LOW:!MD5:!aNULL:!eNULL'
-    sslProtocol= 'all -SSLv2 -SSLv3'}
+    sslProtocol= 'all -SSLv2 -SSLv3 -TLSv1'}
 $httpdjson = $httpvals | ConvertTo-Json
 
 #[STIG NET1639] 
