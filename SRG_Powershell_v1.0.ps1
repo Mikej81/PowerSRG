@@ -189,7 +189,7 @@ icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.text" "PATCH" $newcred $advisor
 $httpvals = @{
     maxClients= 10
     authPamIdleTimeout= 900
-    sslCiphersuite= 'ALL:!ADH:!RC4:!RSA:!EXPORT:!EXP:!LOW:!MD5:!aNULL:!eNULL'
+    sslCiphersuite= 'ALL:!aNULL:!eNULL:!EXPORT:!EXP:!ADH:!DES:!RC4:!RSA:!LOW:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA'
     sslProtocol= 'all -SSLv2 -SSLv3 -TLSv1'}
 
 $httpdjson = $httpvals | ConvertTo-Json
