@@ -2,6 +2,33 @@
 #Powershell SRG Script
 #Michael Coleman, M.Coleman@F5.com
 ##################################
+Add-Type @"
+    using System;
+    using System.Net;
+    using System.Net.Security;
+    using System.Security.Cryptography.X509Certificates;
+    public class ServerCertificateValidationCallback
+    {
+        public static void Ignore()
+        {
+            ServicePointManager.ServerCertificateValidationCallback += 
+                delegate
+                (
+                    Object obj, 
+                    X509Certificate certificate, 
+                    X509Chain chain, 
+                    SslPolicyErrors errors
+                )
+                {
+                    return true;
+                };
+        }
+    }
+"@
+ 
+[ServerCertificateValidationCallback]::Ignore();
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls11
+
 [void][System.Reflection.Assembly]::LoadWithPartialName("System.Web")
 [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
 $long_pass = [System.Web.Security.Membership]::GeneratePassword(32,8)
@@ -20,7 +47,11 @@ $ic_uri = $ic_host + $ic_path
         $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -ContentType 'application/json'
     }
     else {
-        $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $webRequest.Method -Credential $ic_creds -Body $ic_body -ContentType 'application/json'
+        write-host "Method:  $ic_method"
+        write-host "URL:     $ic_uri"
+        write-host "Body:    $ic_body"
+
+        $ic_results = Invoke-RestMethod "https://$ic_uri" -Method $ic_method -Credential $ic_creds -Body $ic_body -ContentType 'application/json'
     }
     if ($log_val){
         write-host $ic_results | fl
@@ -116,16 +147,16 @@ $sshdvals = @"
     "inactivityTimeout":  "900",
     "banner":  "enabled",
     "banner-text":  "$bannerText",
-"include":  "Protocol 2\r\nMaxAuthTries 3\r\nCiphers aes128-ctr,aes192-ctr,aes256-ctr\r\nMACs hmac-sha1,hmac-ripemd160"
+    "include":  "Protocol 2\r\nMaxAuthTries 3\r\nCiphers aes128-ctr,aes192-ctr,aes256-ctr\r\nMACs hmac-sha1,hmac-ripemd160"
 }
 "@
-$sshdconv = $sshdvals | ConvertFrom-Json   
+$sshdconv = $sshdvals | ConvertFrom-Json
 $sshdjson = $sshdconv | ConvertTo-Json
 
 #[STIG NET1645] 
 #SSHD
 #$sshdresponse = Invoke-RestMethod "https://$bigiphost/mgmt/tm/sys/sshd" -Method PATCH -Credential $newcred -Body $sshdjson -ContentType 'application/json'
-icontrol $bigiphost "/mgmt/tm/sys/sshd" "PATCH" $newcred $sshdjson $logging
+icontrol $bigiphost "/mgmt/tm/sys/sshd" "PATCH" $newcred $sshdjson
 
 
 #NTP Settings
@@ -189,7 +220,7 @@ icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.text" "PATCH" $newcred $advisor
 $httpvals = @{
     maxClients= 10
     authPamIdleTimeout= 900
-    sslCiphersuite= 'ALL:!aNULL:!eNULL:!EXPORT:!EXP:!ADH:!DES:!RC4:!RSA:!LOW:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA'
+    sslCiphersuite= 'DEFAULT:!aNULL:!eNULL:!EXPORT:!EXP:!ADH:!DES:!RC4:!RSA:!LOW:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA:!DHE'
     sslProtocol= 'all -SSLv2 -SSLv3 -TLSv1'}
 
 $httpdjson = $httpvals | ConvertTo-Json
