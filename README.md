@@ -18,6 +18,8 @@ Then, run the script.  The message boxes will guide you...
 
 9/27/2016:  Moved some code around for Windows 10 support.  Tightened security around supported ciphers and protocols for SSHD/HTTPD.
 
+3/17/2017:  Added some updates to PowerSRG.sh.  Not completed, just does the basic patching.  
+
 # *TODO:
 
 -Working on CreateClientSSLProfile() function.
@@ -42,7 +44,11 @@ switch back to AAA. What effects on currently logged in user?
 
 -12.1.1
 
-#Functions
+-12.1.2
+
+-13.0
+
+#PowerShell Functions
 -iControl() - streamlines the PowerShell Invoke-RestMethod, adds logging / debug.
 
 -RemoteAuth() - placeholder to support Remote AAA X-F5-Auth-Token in v12. *Caveat:  Will only work in v12.
