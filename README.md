@@ -48,7 +48,7 @@ switch back to AAA. What effects on currently logged in user?
 
 -13.0
 
-#PowerShell Functions
+# PowerShell Functions
 -iControl() - streamlines the PowerShell Invoke-RestMethod, adds logging / debug.
 
 -RemoteAuth() - placeholder to support Remote AAA X-F5-Auth-Token in v12. *Caveat:  Will only work in v12.
