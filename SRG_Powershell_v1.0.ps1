@@ -180,9 +180,10 @@ if ($NTPQuestion) {
     icontrol $bigiphost "/mgmt/tm/sys/ntp/" "PATCH" $newcred $ntpjson $logging
 }
 
-#Global Settings; HTTPD UI Banner
+#Global Settings; HTTPD UI Banner; LCD Display Disable - CCMODE
 $globalvals = @"
 {
+"lcdDisplay":"disabled",
 "guiSecurityBanner":"enabled",
 "guiSecurityBannerText": "$bannerText"
 }
@@ -191,6 +192,82 @@ $globalconv = $globalvals | ConvertFrom-Json
 $globaljson = $globalconv | ConvertTo-Json
 
 icontrol $bigiphost "/mgmt/tm/sys/global-settings" "PATCH" $newcred $globaljson $logging
+
+#Log Level Settings - CCMODE
+$tmmdaemonlogvals = @"
+{
+   "osLogLevel": "informational",
+   "sslLogLevel": "informational"
+}
+"@
+$tmmdconv = $tmmdaemonlogvals | ConvertFrom-Json
+$tmmdjson = $tmmdconv | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/sys/daemon-log-settings/tmm" "PATCH" $newcred $tmmdjson $logging
+
+$mcpdlogvals = @"
+{
+   "audit": "enabled",
+   "logLevel": "notice"
+}
+"@
+$mcpdlogconv = $mcpdlogvals | ConvertFrom-Json
+$mcdpjson = $mcpdlogconv | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/sys/daemon-log-settings/mcpd" "PATCH" $newcred $mcpdjson $logging
+
+$sslLogvals = @"
+{
+   "value": "Informational"
+}
+"@
+$sslconv = $sslLogvals | ConvertFrom-Json
+$ssljson = $sslconv | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/sys/db/log.ssl.level" "PATCH" $newcred $ssljson $logging
+
+#Prompt to reboot - CCMODE
+$rebootprompt = @"
+{
+   "value": "reboot"
+}
+"@
+$rebootconv = $rebootprompt | ConvertFrom-Json
+$rebootjson = $rebootconv | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/sys/db/provision.action" "PATCH" $newcred $rebootjson $logging
+
+#Force Secure Failover and State Mirroring Communication - CCMODE
+$statemirrorvals = @"
+{
+   "value": "enable"
+}
+"@
+$statemirrorconv = $statemirrorvals | ConvertFrom-Json
+$statemirrorjson = $statemirrorconv | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/sys/db/statemirror.secure" "PATH" $newcred $statemirrorjson $logging
+
+$failovervals = @"
+{
+   "value": "enable"
+}
+"@
+$falioverconv = $failovervals | ConvertFrom-Json
+$failoverjson = $falioverconv | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/sys/db/failover.secure" "PATH" $newcred $failoverjson $logging
+
+#SelfIP Lockdown - CCMODE
+$selfvals = @"
+{
+   "defaults": "none"
+}
+"@
+$selfconv = $selfvals | ConvertFrom-Json
+$selfjson = $selfconv | ConvertTo-Json
+
+icontrol $bigiphost "/mgmt/tm/net/self-allow" "PATCH" $newcred $selfjson $logging
 
 #Advisory Banners.  PITA that its 3 seperate DB settings
 $advisoryenable = @"
