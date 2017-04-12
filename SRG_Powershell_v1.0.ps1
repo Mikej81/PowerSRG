@@ -139,7 +139,7 @@ if ($testcon) {
         [System.Windows.Forms.MessageBox]::Show("Success:  Script has been successfully tested on this version. Configuration will continue.  Question boxes left blank will leave existing configuration unmodified.", "Connection Successful.") 
     }
 
-#Configurations supported on all tested platforms.  11.6 & 12.0
+#Configurations supported on all tested platforms.  11.6, 12.0, & 13.0
 
 #SSHD Settings
 $sshdvals = @"
@@ -147,7 +147,7 @@ $sshdvals = @"
     "inactivityTimeout":  "900",
     "banner":  "enabled",
     "banner-text":  "$bannerText",
-    "include":  "Protocol 2\r\nMaxAuthTries 3\r\nCiphers aes128-ctr,aes192-ctr,aes256-ctr\r\nMACs hmac-sha1,hmac-ripemd160"
+    "include":  "Protocol 2\r\nMaxAuthTries 3\r\nCiphers aes128-ctr,aes192-ctr,aes256-ctr\r\nMACs hmac-sha1,hmac-ripemd160\r\nLoginGraceTime 1m\r\nMaxStartups 5"
 }
 "@
 $sshdconv = $sshdvals | ConvertFrom-Json
@@ -183,7 +183,6 @@ if ($NTPQuestion) {
 #Global Settings; HTTPD UI Banner; LCD Display Disable - CCMODE
 $globalvals = @"
 {
-"lcdDisplay":"disabled",
 "guiSecurityBanner":"enabled",
 "guiSecurityBannerText": "$bannerText"
 }
@@ -193,28 +192,30 @@ $globaljson = $globalconv | ConvertTo-Json
 
 icontrol $bigiphost "/mgmt/tm/sys/global-settings" "PATCH" $newcred $globaljson $logging
 
+#Commenting out CCMODE configs until more testing can be done.
+
 #Log Level Settings - CCMODE
-$tmmdaemonlogvals = @"
-{
-   "osLogLevel": "informational",
-   "sslLogLevel": "informational"
-}
-"@
-$tmmdconv = $tmmdaemonlogvals | ConvertFrom-Json
-$tmmdjson = $tmmdconv | ConvertTo-Json
+#$tmmdaemonlogvals = @"
+#{
+#   "osLogLevel": "informational",
+#   "sslLogLevel": "informational"
+#}
+#"@
+#$tmmdconv = $tmmdaemonlogvals | ConvertFrom-Json
+#$tmmdjson = $tmmdconv | ConvertTo-Json
 
-icontrol $bigiphost "/mgmt/tm/sys/daemon-log-settings/tmm" "PATCH" $newcred $tmmdjson $logging
+#icontrol $bigiphost "/mgmt/tm/sys/daemon-log-settings/tmm" "PATCH" $newcred $tmmdjson $logging
 
-$mcpdlogvals = @"
-{
-   "audit": "enabled",
-   "logLevel": "notice"
-}
-"@
-$mcpdlogconv = $mcpdlogvals | ConvertFrom-Json
-$mcdpjson = $mcpdlogconv | ConvertTo-Json
+#$mcpdlogvals = @"
+#{
+#   "audit": "enabled",
+#   "logLevel": "notice"
+#}
+#"@
+#$mcpdlogconv = $mcpdlogvals | ConvertFrom-Json
+#$mcdpjson = $mcpdlogconv | ConvertTo-Json
 
-icontrol $bigiphost "/mgmt/tm/sys/daemon-log-settings/mcpd" "PATCH" $newcred $mcpdjson $logging
+#icontrol $bigiphost "/mgmt/tm/sys/daemon-log-settings/mcpd" "PATCH" $newcred $mcpdjson $logging
 
 $sslLogvals = @"
 {
@@ -227,36 +228,36 @@ $ssljson = $sslconv | ConvertTo-Json
 icontrol $bigiphost "/mgmt/tm/sys/db/log.ssl.level" "PATCH" $newcred $ssljson $logging
 
 #Prompt to reboot - CCMODE
-$rebootprompt = @"
-{
-   "value": "reboot"
-}
-"@
-$rebootconv = $rebootprompt | ConvertFrom-Json
-$rebootjson = $rebootconv | ConvertTo-Json
+#$rebootprompt = @"
+#{
+#   "value": "reboot"
+#}
+#"@
+#$rebootconv = $rebootprompt | ConvertFrom-Json
+#$rebootjson = $rebootconv | ConvertTo-Json
 
-icontrol $bigiphost "/mgmt/tm/sys/db/provision.action" "PATCH" $newcred $rebootjson $logging
+#icontrol $bigiphost "/mgmt/tm/sys/db/provision.action" "PATCH" $newcred $rebootjson $logging
 
 #Force Secure Failover and State Mirroring Communication - CCMODE
-$statemirrorvals = @"
-{
-   "value": "enable"
-}
-"@
-$statemirrorconv = $statemirrorvals | ConvertFrom-Json
-$statemirrorjson = $statemirrorconv | ConvertTo-Json
+#$statemirrorvals = @"
+#{
+#   "value": "enable"
+#}
+#"@
+#$statemirrorconv = $statemirrorvals | ConvertFrom-Json
+#$statemirrorjson = $statemirrorconv | ConvertTo-Json
 
-icontrol $bigiphost "/mgmt/tm/sys/db/statemirror.secure" "PATH" $newcred $statemirrorjson $logging
+#icontrol $bigiphost "/mgmt/tm/sys/db/statemirror.secure" "PATH" $newcred $statemirrorjson $logging
 
-$failovervals = @"
-{
-   "value": "enable"
-}
-"@
-$falioverconv = $failovervals | ConvertFrom-Json
-$failoverjson = $falioverconv | ConvertTo-Json
+#$failovervals = @"
+#{
+#   "value": "enable"
+#}
+#"@
+#$falioverconv = $failovervals | ConvertFrom-Json
+#$failoverjson = $falioverconv | ConvertTo-Json
 
-icontrol $bigiphost "/mgmt/tm/sys/db/failover.secure" "PATH" $newcred $failoverjson $logging
+#icontrol $bigiphost "/mgmt/tm/sys/db/failover.secure" "PATH" $newcred $failoverjson $logging
 
 #SelfIP Lockdown - CCMODE
 $selfvals = @"
@@ -297,7 +298,7 @@ icontrol $bigiphost "/mgmt/tm/sys/db/ui.advisory.text" "PATCH" $newcred $advisor
 $httpvals = @{
     maxClients= 10
     authPamIdleTimeout= 900
-    sslCiphersuite= 'DEFAULT:!aNULL:!eNULL:!EXPORT:!EXP:!ADH:!DES:!RC4:!RSA:!LOW:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA:!DHE'
+    sslCiphersuite= 'HIGH:!3DES'
     sslProtocol= 'all -SSLv2 -SSLv3 -TLSv1'}
 
 $httpdjson = $httpvals | ConvertTo-Json
@@ -326,7 +327,8 @@ if ($aclallow){
 #[STIG NET0405]
 #Call Home Disable
 $chval = @{
-    autoCheck = 'disabled'
+    autoCheck = 'disabled',
+    autoPhoneHome = 'disabled'
 }
 $chjson = $chval | ConvertTo-Json
 
