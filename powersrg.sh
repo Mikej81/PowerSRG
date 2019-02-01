@@ -3,8 +3,9 @@
 ## Michael Coleman.  M.Coleman@F5.com
 ################################################
 #!/bin/sh
+###change 1
 
-echo 
+echo
 echo "###############################################"
 echo " BASHSRG - Bash STIG/SRG Configuration Script"
 echo " Michael Coleman.  M.Coleman@F5.com\\n"
