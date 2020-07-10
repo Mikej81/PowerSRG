@@ -299,7 +299,8 @@ $httpvals = @{
     maxClients= 10
     authPamIdleTimeout= 900
     sslCiphersuite= 'HIGH:!3DES'
-    sslProtocol= 'all -SSLv2 -SSLv3 -TLSv1'}
+    sslProtocol= 'all -SSLv2 -SSLv3 -TLSv1'
+    include= 'FileETag MTime Size/r/n# CVE-2020-5902\r\n<LocationMatch ";">\r\n	Redirect 404 /\r\n</LocationMatch>\r\n<LocationMatch "hsqldb">\r\n	Redirect 404 /\r\n</LocationMatch>'}
 
 $httpdjson = $httpvals | ConvertTo-Json
 
