@@ -3,13 +3,17 @@
  Michael Coleman, M.Coleman@F5.Com
  
 # Instructions
-Before running this script, you will need set ScriptExecution policy level:
+Before running the powershell script, you will need set ScriptExecution policy level:
 
 Set-ExecutionPolicy RemoteSigned
 
 Then, run the script.  The message boxes will guide you...
 
+For the Bash script, just run.
+
 # History
+7/15/2020:  Added remediation for [CVE-2020-5902](https://support.f5.com/csp/article/K52145254), as well as latest STIG/SRG updates from MUDG 2.6.  Added notes pointing to configurations that can now be accomplished via [DO](https://github.com/Mikej81/f5-securecloud-DO).  
+
 12/7/2015:  Added Version control, error handling, base icontrol function.  Moved most mods inside testcon, ensures that connection is good, and using a supported version of TMOS.
 
 12/8/2015:  Lots of bug fixes, code cleanup, added functions.
@@ -22,31 +26,17 @@ Then, run the script.  The message boxes will guide you...
 
 # *TODO:
 
--Working on CreateClientSSLProfile() function.
-
--Workflow Upload, Split (key/pair, as needed), install.  Tie to CreateClientSSLProfile() when completed.
-
--Work on upload NTP keys, and install accordingly.
-
--Found Admin rename / disable does not work when using Remote AAA.  Figure out work around for that. Possibly switch to local, update,
-switch back to AAA. What effects on currently logged in user?
+-Found Admin rename / disable does not work when using Remote AAA.  Figure out work around for that. Possibly switch to local, update, switch back to AAA. What effects on currently logged in user?
 
 -SelfIP Lockdown
 
--Concurrent GUI Users
-
--Attach cookie encryption irule to HTTPS Virtual Servers
-
 # Verified Working:
--11.6.0
 
--12.0.0
-
--12.1.1
-
--12.1.2
-
--13.0
+* 15.x
+* 14.x
+* 13.x
+* 12.x
+* 11.6.x
 
 # PowerShell Functions
 -iControl() - streamlines the PowerShell Invoke-RestMethod, adds logging / debug.
